@@ -1,0 +1,23 @@
+# Private settings and runtime data
+personal.env
+*.personal.env
+.env
+.env.*
+!*.example
+apps/live-studio/remote-page/config.js
+message-log.md
+messages.jsonl
+*.log
+*.pids
+
+# Dependencies and generated artifacts
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.netlify/
+core/divoom-send.app/
+core/divoom-send
+core/audio-guard
+build/
+dist/

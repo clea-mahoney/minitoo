@@ -1,0 +1,207 @@
+#!/bin/bash
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+APP="$HERE/divoom-send.app"
+LOG="${DIVOOM_LOG:-/tmp/divoom-send.log}"
+FIFO="${DIVOOM_FIFO:-/tmp/divoom.fifo}"
+
+ENV_ARGS=()
+build_env_args() {
+  local v
+  ENV_ARGS=()
+  for v in DIVOOM_LOG DIVOOM_FIFO DIVOOM_PORT DIVOOM_REQUIRE_PORT DIVOOM_GAP_MS \
+           DIVOOM_FRAME_DELAY_MS DIVOOM_HOLD_MS DIVOOM_QUIT_DWELL_MS \
+           DIVOOM_BRIGHT_OP DIVOOM_ESCAPE DIVOOM_DEVICE_ID \
+           DIVOOM_CUSTOM_SWITCH_MODE DIVOOM_CUSTOM_SWITCH_DELAY_MS; do
+    if [ -n "${!v:-}" ]; then
+      ENV_ARGS[${#ENV_ARGS[@]}]="--env"
+      ENV_ARGS[${#ENV_ARGS[@]}]="$v=${!v}"
+    fi
+  done
+}
+
+write_fifo() {
+  local msg="$1"
+  local wpid i
+  if ! pgrep -x divoom-send >/dev/null 2>&1; then
+    rm -f "$FIFO"
+    echo "no daemon running (removed stale FIFO $FIFO)" >&2
+    return 1
+  fi
+  ( printf '%s\n' "$msg" > "$FIFO" ) &
+  wpid=$!
+  for i in $(seq 1 50); do
+    if ! kill -0 "$wpid" 2>/dev/null; then
+      wait "$wpid" 2>/dev/null || true
+      return 0
+    fi
+    sleep 0.1
+  done
+  kill "$wpid" 2>/dev/null || true
+  echo "timed out after 5s writing to $FIFO -- the FIFO exists but nothing is reading it." >&2
+  echo "Clear it with: pkill -x divoom-send; rm -f $FIFO" >&2
+  return 1
+}
+
+refuse_if_helper_running() {
+  local pids
+  pids="$(pgrep -x divoom-send 2>/dev/null || true)"
+  [ -n "$pids" ] || return 0
+  cat >&2 <<EOF
+A divoom-send helper is already running (pid $(echo "$pids" | tr '\n' ' ')).
+macOS will not start a second instance of the same app bundle, and that process
+is holding RFCOMM channel 1, so this command cannot get its own connection.
+
+Stop it first:
+  $0 stop
+If that reports "daemon not running (no FIFO)", the process is orphaned -- kill
+it directly:
+  pkill -x divoom-send
+EOF
+  return 1
+}
+
+wait_for_daemon() {
+  local label="$1"
+  local i
+  for i in $(seq 1 100); do
+    if [ -p "$FIFO" ] && grep -q "daemon: listening" "$LOG" 2>/dev/null; then
+      echo "$label started (pid $(pgrep -n -x divoom-send 2>/dev/null || echo '?')). log: tail -f $LOG"
+      return 0
+    fi
+    if grep -q '^FATAL:' "$LOG" 2>/dev/null; then
+      echo "$label could not start:" >&2
+      grep -E '^(FATAL|ERROR|WARNING):|^port policy:|^SDP summary:|^trying RFCOMM|^  result = |^connected on RFCOMM' "$LOG" >&2 || true
+      echo "(full log: $LOG)" >&2
+      return 1
+    fi
+    if [ "$i" -gt 40 ] && [ ! -s "$LOG" ] && pgrep -x divoom-send >/dev/null 2>&1; then
+      cat >&2 <<EOF
+$label is running but has produced no output at all, which means macOS is
+blocking its Bluetooth access.
+
+Cause: divoom-send.app is signed ad-hoc, so its code signature changes every
+time it is rebuilt, and that voids the Bluetooth permission macOS granted the
+previous build. The app then hangs forever inside IOBluetooth with no error.
+
+Fix: approve it again in
+  System Settings > Privacy & Security > Bluetooth
+(if divoom-send is listed, toggle it off and back on; if it is not listed,
+remove any stale entry and run this command again to trigger a fresh prompt).
+
+  pkill -x divoom-send   # clear the blocked process first
+EOF
+      return 1
+    fi
+    if [ "$i" -gt 20 ] && ! pgrep -x divoom-send >/dev/null 2>&1; then
+      echo "$label exited without opening a channel. Last 25 log lines:" >&2
+      tail -n 25 "$LOG" >&2 || true
+      return 1
+    fi
+    sleep 0.1
+  done
+  echo "$label did not become ready within 10s. Connection attempts:" >&2
+  grep -E '^(port policy:|SDP summary:|trying RFCOMM|  result = |connected on RFCOMM)' "$LOG" >&2 || tail -n 25 "$LOG" >&2 || true
+  echo "(full log: $LOG)" >&2
+  return 1
+}
+
+case "${1:-}" in
+  start)
+    MAC="${2:?usage: dv start <MAC>}"
+    if [ -p "$FIFO" ]; then
+      echo "daemon already running (FIFO exists at $FIFO). Use 'dv stop' first." >&2
+      exit 1
+    fi
+    refuse_if_helper_running || exit 1
+    : > "$LOG"
+    build_env_args
+    open -g "$APP" ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} --args "$MAC" daemon
+    wait_for_daemon daemon || exit 1
+    ;;
+  start-custom)
+    MAC="${2:?usage: dv start-custom <MAC> <FileId> <rawfile> <DeviceId> [delay_ms]}"
+    FILE_ID="${3:?usage: dv start-custom <MAC> <FileId> <rawfile> <DeviceId> [delay_ms]}"
+    RAWFILE="${4:?usage: dv start-custom <MAC> <FileId> <rawfile> <DeviceId> [delay_ms]}"
+    DEVICE_ID="${5:?usage: dv start-custom <MAC> <FileId> <rawfile> <DeviceId> [delay_ms]}"
+    DELAY_MS="${6:-40}"
+    if [ -p "$FIFO" ]; then
+      echo "daemon already running (FIFO exists at $FIFO). Use 'dv stop' first." >&2
+      exit 1
+    fi
+    refuse_if_helper_running || exit 1
+    : > "$LOG"
+    build_env_args
+    open -g "$APP" ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} --args "$MAC" daemon-custom "$FILE_ID" "$RAWFILE" "$DEVICE_ID" "$DELAY_MS"
+    wait_for_daemon "custom daemon" || exit 1
+    ;;
+  start-custom-multi)
+    MAC="${2:?usage: dv start-custom-multi <MAC> <DeviceId> <delay_ms> <FileId=rawfile>...}"
+    DEVICE_ID="${3:?usage: dv start-custom-multi <MAC> <DeviceId> <delay_ms> <FileId=rawfile>...}"
+    DELAY_MS="${4:?usage: dv start-custom-multi <MAC> <DeviceId> <delay_ms> <FileId=rawfile>...}"
+    shift 4
+    if [ "$#" -lt 1 ]; then
+      echo "usage: dv start-custom-multi <MAC> <DeviceId> <delay_ms> <FileId=rawfile>..." >&2
+      exit 64
+    fi
+    if [ -p "$FIFO" ]; then
+      echo "daemon already running (FIFO exists at $FIFO). Use 'dv stop' first." >&2
+      exit 1
+    fi
+    refuse_if_helper_running || exit 1
+    : > "$LOG"
+    build_env_args
+    open -g "$APP" ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} --args "$MAC" daemon-custom-multi "$DEVICE_ID" "$DELAY_MS" "$@"
+    wait_for_daemon "custom multi daemon" || exit 1
+    ;;
+  stop)
+    if [ ! -p "$FIFO" ]; then
+      orphans="$(pgrep -x divoom-send 2>/dev/null || true)"
+      if [ -n "$orphans" ]; then
+        echo "no FIFO, but divoom-send is running (pid $(echo "$orphans" | tr '\n' ' ')) -- orphaned; killing it." >&2
+        pkill -x divoom-send 2>/dev/null || true
+        sleep 1
+        pkill -9 -x divoom-send 2>/dev/null || true
+        echo "stopped (orphan killed)"
+        exit 0
+      fi
+      echo "daemon not running (no FIFO)"
+      exit 0
+    fi
+    write_fifo quit || true
+    for i in $(seq 1 20); do
+      pgrep -x divoom-send >/dev/null 2>&1 || { echo "stopped"; exit 0; }
+      sleep 0.2
+    done
+    echo "helper did not exit after quit; killing it." >&2
+    pkill -x divoom-send 2>/dev/null || true
+    sleep 1
+    pkill -9 -x divoom-send 2>/dev/null || true
+    rm -f "$FIFO"
+    echo "stopped (forced)"
+    ;;
+  oneshot)
+    shift
+    MAC="${1:?usage: dv oneshot <MAC> <cmd> <args>}"
+    shift
+    refuse_if_helper_running || exit 1
+    : > "$LOG"
+    build_env_args
+    open -W "$APP" ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} --args "$MAC" "$@" || true
+    cat "$LOG"
+    ;;
+  "")
+    printf '%s\n' 'Usage: dv start MAC | stop | brightness PCT | json JSON | raw HEX | rawfile PATH [DELAY_MS]'
+    exit 64
+    ;;
+  *)
+    if [ -p "$FIFO" ]; then
+      write_fifo "$*" || exit 1
+    else
+      echo "no daemon running. Start one with: dv start <MAC>" >&2
+      echo "or use: dv oneshot <MAC> $*" >&2
+      exit 1
+    fi
+    ;;
+esac
