@@ -13,10 +13,10 @@ the repository.
 | Session cleanup | Real Studio start/send/stop cycle passed; device lock released and previous hook pause restored |
 | Pomodoro | 20-second device countdown visually confirmed and finished without an alarm. Music reported playing through the MiniToo after connection, then paused and restored Mac speakers. Cancellation released the device lock and resumed hooks. Automated checks cover two complete work/break cycles, final break, music ordering and termination |
 | Source checks | Shell and JavaScript syntax passed; Swift helper type-check passed |
-| Privacy | Known personal configuration values and excluded historical names absent; no Git history or message logs included |
+| Privacy | Known personal configuration values and excluded historical names absent; no imported private history or message logs included |
 | Device display | 160x128 text transferred in 0.912 seconds and was visually confirmed. A text-and-emoji message was acknowledged in 0.943 seconds |
 | Codex adapter | Real working/waiting/finished adapter sequence passed. Codex loaded all five hooks without errors; they are trusted on the test Mac. Automatic working-state updates were observed during real tool calls |
-| Remote cloud | Existing hosted page connected through its Firebase project; live heartbeat and media acknowledgement verified. New-project password rules remain examples, not deployed |
+| Remote cloud | Existing Netlify-hosted anonymous-login page sent a message through Firebase and the Mac to a device acknowledgement on 2026-11-02. Earlier screen checks confirmed remote messages visually. Fresh-project password login and database rules have not been validated end to end |
 
 ## Run the tests
 
