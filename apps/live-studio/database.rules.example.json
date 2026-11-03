@@ -1,0 +1,22 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "minitoo-live": {
+      ".read": "auth != null && (auth.uid === 'SENDER_UID' || auth.uid === 'RELAY_UID')",
+      ".write": "auth != null && (auth.uid === 'SENDER_UID' || auth.uid === 'RELAY_UID')",
+      ".validate": "newData.hasChildren(['text', 'color', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 300 && newData.child('color').isString() && newData.child('ts').isNumber()"
+    },
+    "minitoo-status": {
+      ".read": "auth != null && (auth.uid === 'SENDER_UID' || auth.uid === 'RELAY_UID')",
+      ".write": "auth != null && auth.uid === 'RELAY_UID'"
+    },
+    "minitoo-log": {
+      ".read": "auth != null && (auth.uid === 'SENDER_UID' || auth.uid === 'RELAY_UID')",
+      "$entryId": {
+        ".write": "auth != null && auth.uid === 'SENDER_UID' && !data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 300 && newData.child('ts').isNumber()"
+      }
+    }
+  }
+}

@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+set -u
+
+resolve_script_dir() {
+  local source="$1" dir
+  while [ -h "$source" ]; do
+    dir="$(cd -P "$(dirname "$source")" && pwd)"
+    source="$(readlink "$source")"
+    case "$source" in /*) ;; *) source="$dir/$source" ;; esac
+  done
+  cd -P "$(dirname "$source")" && pwd
+}
+SCRIPT_DIR="$(resolve_script_dir "$0")"
+
+. "$SCRIPT_DIR/lib/clauddy-lib.sh"
+
+PAUSE_FILE="${CLAUDDY_DISABLED_FILE:-$HOME/.clauddy/disabled}"
+STATE_FILE="${CLAUDDY_HOOK_STATE_FILE:-/tmp/clauddy-hook-state}"
+
+die() { printf 'clauddy: %s\n' "$*" >&2; exit 1; }
+
+parse_duration() {
+  local d="${1:-8h}"
+  case "$d" in
+    forever|never|off) printf 'forever' ;;
+    *h)  printf '%s' $(( ${d%h} * 3600 )) ;;
+    *m)  printf '%s' $(( ${d%m} * 60 )) ;;
+    *s)  printf '%s' "${d%s}" ;;
+    *[!0-9]*) die "cannot read duration '$d' (try 30m, 2h, or forever)" ;;
+    *)   printf '%s' $(( d * 60 )) ;;
+  esac
+}
+
+pause_remaining() {
+  [ -e "$PAUSE_FILE" ] || return 0
+  local until="" now left
+  read -r until < "$PAUSE_FILE" 2>/dev/null || until=""
+  case "$until" in
+    ''|*[!0-9]*) printf 'forever (until you resume)'; return 0 ;;
+  esac
+  now="$(date +%s)"
+  if [ "$now" -ge "$until" ]; then printf 'expired (next hook will resume)'; return 0; fi
+  left=$(( until - now ))
+  if [ "$left" -ge 3600 ]; then printf '%dh%dm left' $(( left / 3600 )) $(( (left % 3600) / 60 ))
+  elif [ "$left" -ge 60 ]; then printf '%dm left' $(( left / 60 ))
+  else printf '%ds left' "$left"; fi
+}
+
+clauddy_active_character() {
+  local link="$SCRIPT_DIR/assets/chilling.gif"
+  [ -L "$link" ] || { printf 'unknown'; return 0; }
+  basename "$(dirname "$(readlink "$link")")"
+}
+
+cmd_character() {
+  local char_dir="$SCRIPT_DIR/assets/characters"
+  local name="${1:-}" c active state
+
+  if [ -z "$name" ]; then
+    active="$(clauddy_active_character)"
+    printf 'Available characters:\n'
+    for c in "$char_dir"/*/; do
+      c="$(basename "$c")"
+      if [ "$c" = "$active" ]; then printf '  * %s (active)\n' "$c"; else printf '    %s\n' "$c"; fi
+    done
+    return 0
+  fi
+
+  [ -d "$char_dir/$name" ] || die "unknown character '$name' (try: clauddy character)"
+  for state in chilling working alerting; do
+    [ -f "$char_dir/$name/$state.gif" ] || die "character '$name' is missing $state.gif"
+  done
+
+  for state in chilling working alerting; do
+    ln -sf "characters/$name/$state.gif" "$SCRIPT_DIR/assets/$state.gif"
+  done
+
+  printf 'Switched to %s. Uploading faces to the device...\n' "$name"
+  "$SCRIPT_DIR/reupload-faces.sh"
+}
+
+cmd_status() {
+  local pause face_name clock_id
+  printf 'Clauddy status\n\n'
+
+  clauddy_load_config "$CLAUDDY_CONFIG_DEFAULT"
+
+  pause="$(pause_remaining)"
+  if [ -n "$pause" ]; then
+    printf '  hooks    PAUSED -- %s\n' "$pause"
+    printf '           the display keeps whatever face is up now.\n'
+    printf '           resume with: clauddy resume\n'
+  else
+    printf '  hooks    active -- Claude sessions drive the display\n'
+  fi
+
+  face_name=""
+  if [ -r "$STATE_FILE" ]; then read -r face_name _ < "$STATE_FILE" 2>/dev/null || face_name=""; fi
+  if [ -n "$face_name" ]; then
+    clock_id="$(clauddy_state_clock_id "$face_name" 2>/dev/null || printf '?')"
+    printf '  face     %s (ClockId=%s)\n' "$face_name" "$clock_id"
+  else
+    printf '  face     unknown (no face set this boot)\n'
+  fi
+
+  printf '  character %s\n' "$(clauddy_active_character)"
+
+  if clauddy_has_default_clock 2>/dev/null; then
+    printf '  default  ClockId=%s -- shown when no session is working\n' "$(clauddy_default_clock_id)"
+  else
+    printf '  default  not set -- releases fall back to the chilling face\n'
+  fi
+
+  if pgrep -x divoom-send >/dev/null 2>&1; then
+    printf '  helper   running (pid %s)\n' "$(pgrep -x divoom-send | tr '\n' ' ')"
+  else
+    printf '  helper   stopped (starts on demand)\n'
+  fi
+}
+
+cmd_pause() {
+  local secs until
+  secs="$(parse_duration "${1:-8h}")" || exit 1
+  mkdir -p "$(dirname "$PAUSE_FILE")"
+  if [ "$secs" = "forever" ]; then
+    : > "$PAUSE_FILE"
+    printf 'Hooks paused indefinitely. Resume with: clauddy resume\n'
+  else
+    until=$(( $(date +%s) + secs ))
+    printf '%s\n' "$until" > "$PAUSE_FILE"
+    printf 'Hooks paused for %s (until %s). It will lift on its own.\n' \
+      "$1" "$(date -r "$until" '+%-I:%M %p' 2>/dev/null || printf '%s' "$until")"
+  fi
+  pkill -f 'set-clauddy-state.sh' 2>/dev/null || :
+  pkill -f 'clauddy-hook.sh' 2>/dev/null || :
+
+  clauddy_load_config "$CLAUDDY_CONFIG_DEFAULT" 2>/dev/null || true
+  local last_face=""
+  [ -r "$STATE_FILE" ] && { read -r last_face _ < "$STATE_FILE" 2>/dev/null || last_face=""; }
+  if [ -n "$last_face" ]; then
+    clauddy_confirm_hint "$last_face"
+  fi
+}
+
+cmd_resume() {
+  if [ -e "$PAUSE_FILE" ]; then
+    rm -f "$PAUSE_FILE"
+    printf 'Hooks active again. The next prompt or tool call claims the display.\n'
+  else
+    printf 'Hooks were already active.\n'
+  fi
+  printf 'When it does, check the MiniToo matches -- power-cycle its button (never unplug) if not.\n'
+}
+
+cmd_face() {
+  local f="${1:-}"
+  case "$f" in
+    chilling|working|alerting|default) ;;
+    '') die "which face? (chilling|working|alerting|default)" ;;
+    *) die "unknown face '$f' (chilling|working|alerting|default)" ;;
+  esac
+  "$SCRIPT_DIR/set-clauddy-state.sh" "$f" || return 1
+  clauddy_load_config "$CLAUDDY_CONFIG_DEFAULT" 2>/dev/null || true
+  clauddy_confirm_hint "$f"
+
+  local tmp="$STATE_FILE.tmp.$$"
+  if printf '%s %s %s\n' "$f" "$(date +%s)" "$(clauddy_helper_token)" > "$tmp" 2>/dev/null; then
+    mv -f "$tmp" "$STATE_FILE" 2>/dev/null || rm -f "$tmp"
+  fi
+}
+
+usage() {
+  printf '%s\n' 'Usage: clauddy status|face NAME|character [fox|dino]|pause [DURATION]|resume'
+}
+
+case "${1:-status}" in
+  status)          cmd_status ;;
+  pause|nap|off)   shift; cmd_pause "${1:-8h}" ;;
+  resume|on)       cmd_resume ;;
+  face)            shift; cmd_face "${1:-}" ;;
+  character|char)  shift; cmd_character "${1:-}" ;;
+  -h|--help|help)  usage ;;
+  *)               die "unknown command '$1' (try: clauddy status)" ;;
+esac

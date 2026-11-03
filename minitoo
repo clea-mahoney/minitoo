@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# One entry point for the display's three apps.
+set -euo pipefail
+SOURCE="$0"
+while [ -h "$SOURCE" ]; do
+  DIRECTORY="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  case "$SOURCE" in /*) ;; *) SOURCE="$DIRECTORY/$SOURCE" ;; esac
+done
+ROOT="$(cd "$(dirname "$SOURCE")" && pwd)"
+if [ -d "$ROOT/.venv/bin" ]; then export PATH="$ROOT/.venv/bin:$PATH"; fi
+[ ! -f "$ROOT/personal.env" ] || . "$ROOT/personal.env"
+[ ! -f "$HOME/.clauddy/live-studio.env" ] || . "$HOME/.clauddy/live-studio.env"
+# Reuse an already-approved helper when the local hook installer recorded one.
+if [ -z "${CLAUDDY_CORE_DIR:-}" ] && [ -f "$HOME/.clauddy/codex-config.json" ]; then
+  CLAUDDY_CORE_DIR="$(python3 -c 'import json,pathlib; print(json.loads((pathlib.Path.home()/".clauddy/codex-config.json").read_text()).get("core_dir", ""))')"
+  if [ -n "$CLAUDDY_CORE_DIR" ]; then
+    export CLAUDDY_CORE_DIR
+    export DIVOOM_DV="$CLAUDDY_CORE_DIR/dv"
+  fi
+fi
+case "${1:-help}" in
+  setup) shift; exec "$ROOT/apps/clauddy/install.sh" "$@" ;;
+  codex)
+    shift
+    action="${1:-install}"
+    [ "$#" -eq 0 ] || shift
+    case "$action" in
+      install) exec python3 "$ROOT/apps/clauddy/install-codex-hooks.py" "$@" ;;
+      remove) exec python3 "$ROOT/apps/clauddy/install-codex-hooks.py" --remove "$@" ;;
+      *) echo "Usage: minitoo codex install|remove" >&2; exit 64 ;;
+    esac ;;
+  status)
+    if [ -f "${CLAUDDY_CONFIG:-$HOME/.clauddy/config}" ]; then "$ROOT/apps/clauddy/clauddy" status; else echo "Characters are not configured. Run ./minitoo setup."; fi
+    exec "$ROOT/apps/live-studio/toggle.sh" status ;;
+  face|character|pause|resume) exec "$ROOT/apps/clauddy/clauddy" "$@" ;;
+  pomodoro) shift; exec "$ROOT/apps/pomodoro/pomodoro.sh" "$@" ;;
+  studio) shift; exec "$ROOT/apps/live-studio/toggle.sh" "${@:-status}" ;;
+  send)
+    shift
+    . "$ROOT/apps/clauddy/lib/clauddy-lib.sh"
+    clauddy_load_config "$CLAUDDY_CONFIG_DEFAULT"
+    clauddy_lock_acquire_or_die "Send media" 5
+    clauddy_start_daemon "$CLAUDDY_MINITOO_MAC"
+    python3 "$ROOT/core/media.py" "$@" ;;
+  help|--help|-h)
+    cat <<'HELP'
+MiniToo for macOS
+
+  ./minitoo setup [--email EMAIL]       Install character faces
+  ./minitoo status                     Show character, hooks and Studio status
+  ./minitoo codex install|remove        Configure automatic Codex faces
+  ./minitoo face working|alerting|chilling|default
+  ./minitoo character [fox|dino]        List or install a character
+  ./minitoo pause [30m|2h|forever]       Pause automatic status hooks
+  ./minitoo resume                     Enable automatic status hooks
+  ./minitoo pomodoro [work break cycles] [--no-music]
+  ./minitoo studio on|off|status|back|forward
+  ./minitoo send IMAGE_OR_GIF [--square]
+HELP
+    ;;
+  *) echo "Unknown command. Run ./minitoo help." >&2; exit 64 ;;
+esac

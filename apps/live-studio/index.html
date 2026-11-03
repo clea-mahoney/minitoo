@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MiniToo Live Studio (local test)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { background: #111; color: #eee; font-family: "DM Sans", -apple-system, sans-serif; padding: 24px; max-width: 420px; margin: auto; }
+  h1 { font-size: 18px; font-weight: 600; }
+  .subtitle { font-size: 12px; color: #666; margin: -8px 0 16px; }
+  textarea { width: 100%; height: 80px; font-size: 16px; padding: 10px; border-radius: 8px; border: 1px solid #333; background: #1a1a1a; color: #fff; resize: none; box-sizing: border-box; }
+  .swatches { display: flex; gap: 10px; margin: 14px 0; flex-wrap: wrap; }
+  .swatch { width: 36px; height: 36px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .swatch.selected { border-color: #fff; }
+  .hint { font-size: 11px; color: #666; margin: -6px 0 10px; }
+  .status { font-size: 13px; color: #888; margin-top: 10px; min-height: 18px; }
+
+
+  .minitoo-wrap { margin-top: 22px; max-width: 260px; margin-left: auto; margin-right: auto; }
+  .minitoo-head {
+    background: linear-gradient(180deg, #f2ecd9 0%, #ded5bd 100%);
+    border-radius: 16px;
+    padding: 9px 9px 10px;
+    box-shadow:
+      0 10px 18px rgba(0,0,0,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.6),
+      inset 0 -6px 10px rgba(0,0,0,0.12);
+    position: relative;
+    z-index: 2;
+  }
+  .minitoo-vents {
+    height: 7px;
+    margin: -2px -2px 8px;
+    background: repeating-linear-gradient(100deg, #cbc2a8 0 3px, #a89d80 3px 4px, transparent 4px 10px);
+    border-radius: 6px 6px 0 0;
+    box-shadow: inset 0 2px 3px rgba(0,0,0,0.25);
+  }
+  .minitoo-bezel {
+    background: linear-gradient(160deg, #efe8d4, #cfc6ac);
+    border-radius: 14px;
+    padding: 17px 16px;
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,0.5),
+      inset 0 -4px 8px rgba(0,0,0,0.15);
+  }
+  .minitoo-screen {
+    background: radial-gradient(ellipse at 50% 40%, #161616 0%, #000 80%);
+    border-radius: 8px;
+    aspect-ratio: 5 / 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    overflow: hidden;
+    box-shadow:
+      inset 0 6px 14px rgba(0,0,0,0.85),
+      inset 0 -2px 4px rgba(255,255,255,0.05);
+  }
+  .minitoo-screen canvas {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+  .minitoo-badges {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding: 0 2px;
+  }
+  .minitoo-badges span:first-child {
+    font-size: 11px; font-weight: 700; color: #555; letter-spacing: 0.05em;
+    background: #dcd3ba; padding: 4px 10px; border-radius: 4px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 1px rgba(0,0,0,0.15);
+  }
+  .minitoo-badges span:last-child {
+    font-size: 10px; font-weight: 700; color: #fff;
+    background: linear-gradient(180deg, #f0904a, #e2691c);
+    padding: 4px 12px; border-radius: 5px;
+    box-shadow: 0 2px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .minitoo-hinge {
+    height: 6px;
+    margin: -2px 14px 0;
+    background: linear-gradient(180deg, #a89d80, #8d836a);
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 2px 3px rgba(0,0,0,0.25), inset 0 2px 3px rgba(0,0,0,0.35);
+    position: relative;
+    z-index: 1;
+  }
+  .minitoo-keyboard {
+    margin-top: -3px;
+    position: relative;
+    z-index: 0;
+  }
+  .minitoo-deck {
+    clip-path: polygon(0% 0%, 100% 0%, 90% 100%, 10% 100%);
+    background: linear-gradient(180deg, #efe8d4, #d8cfb5);
+    padding: 16px 28px 24px;
+    box-shadow:
+      0 10px 16px rgba(0,0,0,0.3),
+      inset 0 2px 3px rgba(255,255,255,0.5),
+      inset 0 -3px 5px rgba(0,0,0,0.12);
+  }
+  .minitoo-front {
+    height: 8px;
+    margin: 0 26px 9px;
+    clip-path: polygon(0% 0%, 100% 0%, 88% 100%, 12% 100%);
+    background: linear-gradient(180deg, #b7ad90, #968c6e);
+  }
+  .minitoo-panel {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) 30px;
+    grid-template-rows: repeat(2, 20px);
+    gap: 4px;
+  }
+  .minitoo-btn {
+    border-radius: 6px;
+    background: linear-gradient(180deg, #f6f1e2, #d9d0b6);
+    box-shadow: 0 2px 2px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.8), inset 0 -2px 2px rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: #d9691c;
+  }
+  .minitoo-btn.power {
+    background: linear-gradient(180deg, #f0904a, #dd6a1c);
+    color: #fff;
+    box-shadow: 0 2px 2px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .minitoo-dial {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    align-self: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #d8cfb5 55%, #b7ad90 100%);
+    box-shadow: 0 3px 5px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.6);
+    position: relative;
+  }
+  .minitoo-dial::after {
+    content: "";
+    position: absolute;
+    inset: 22%;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #f0904a, #dd6a1c);
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.5), inset 0 -2px 3px rgba(0,0,0,0.25);
+  }
+</style>
+</head>
+<body>
+  <h1>MiniToo / Live Studio</h1>
+  <div class="subtitle">Local controller. Open this page on the Mac connected to the MiniToo.</div>
+  <div class="swatches" id="swatches"></div>
+  <div class="hint">Pick a color, then type — it colors what you type next, not what's already there.</div>
+  <textarea id="text" placeholder="Type status text..." maxlength="70"></textarea>
+  <div class="status" id="status">idle</div>
+
+  <div class="minitoo-wrap">
+    <div class="minitoo-head">
+      <div class="minitoo-vents"></div>
+      <div class="minitoo-bezel">
+        <div class="minitoo-screen">
+          <canvas id="preview" width="160" height="128"></canvas>
+        </div>
+      </div>
+      <div class="minitoo-badges">
+        <span>MINITOO</span>
+        <span>Divoom</span>
+      </div>
+    </div>
+    <div class="minitoo-hinge"></div>
+    <div class="minitoo-keyboard">
+      <div class="minitoo-deck">
+        <div class="minitoo-panel">
+          <div class="minitoo-btn power">⏻</div>
+          <div class="minitoo-btn">MODE</div>
+          <div class="minitoo-btn">↩</div>
+          <div class="minitoo-btn">–</div>
+          <div class="minitoo-btn">⏵⏸</div>
+          <div class="minitoo-btn">+</div>
+          <div class="minitoo-dial"></div>
+        </div>
+      </div>
+      <div class="minitoo-front"></div>
+    </div>
+  </div>
+
+<script>
+const COLORS = ["#E2F6EF", "#3CC9A4", "#F7B8A0"];
+
+const chars = (s) => Array.from(s);
+
+function isEmojiChar(ch) {
+  const cp = ch.codePointAt(0);
+  return (
+    (cp >= 0x1F000 && cp <= 0x1FFFF) ||
+    (cp >= 0x2600 && cp <= 0x27BF) ||
+    (cp >= 0x2B00 && cp <= 0x2BFF) ||
+    cp === 0x2764 || cp === 0x2660 || cp === 0x2663 || cp === 0x2665 || cp === 0x2666 ||
+    cp === 0xFE0F || cp === 0x200D
+  );
+}
+
+let currentColor = COLORS[0];
+let charColors = []; // parallel to chars(textEl.value) -- codepoints, not code units
+let prevChars = [];
+
+const swatchesEl = document.getElementById("swatches");
+COLORS.forEach(c => {
+  const el = document.createElement("div");
+  el.title = ({"#E2F6EF":"Mint Mist", "#3CC9A4":"Seafoam", "#F7B8A0":"Apricot"})[c];
+  el.setAttribute("aria-label", el.title);
+  el.className = "swatch" + (c === currentColor ? " selected" : "");
+  el.style.background = c;
+  el.onclick = () => {
+    currentColor = c;
+    [...swatchesEl.children].forEach(s => s.classList.remove("selected"));
+    el.classList.add("selected");
+  };
+  swatchesEl.appendChild(el);
+});
+
+const textEl = document.getElementById("text");
+const canvas = document.getElementById("preview");
+const ctx = canvas.getContext("2d");
+const statusEl = document.getElementById("status");
+
+function syncCharColors() {
+  const newChars = chars(textEl.value);
+  let i = 0;
+  while (i < prevChars.length && i < newChars.length && prevChars[i] === newChars[i]) i++;
+  let j = 0;
+  while (
+    j < prevChars.length - i &&
+    j < newChars.length - i &&
+    prevChars[prevChars.length - 1 - j] === newChars[newChars.length - 1 - j]
+  ) j++;
+  const removed = prevChars.length - i - j;
+  const insertedLen = newChars.length - i - j;
+  const inserted = new Array(insertedLen).fill(currentColor);
+  charColors.splice(i, removed, ...inserted);
+  prevChars = newChars;
+}
+
+function buildRuns() {
+  const cs = chars(textEl.value);
+  const runs = [];
+  let curColor = null, curText = "";
+  for (let k = 0; k < cs.length; k++) {
+    const c = charColors[k] || currentColor;
+    if (c === curColor) {
+      curText += cs[k];
+    } else {
+      if (curText) runs.push({ text: curText, color: curColor });
+      curColor = c;
+      curText = cs[k];
+    }
+  }
+  if (curText) runs.push({ text: curText, color: curColor });
+  return runs;
+}
+
+function measureMixed(csArr) {
+  let width = 0, i = 0;
+  while (i < csArr.length) {
+    const emoji = isEmojiChar(csArr[i]);
+    let seg = csArr[i]; i++;
+    while (i < csArr.length && isEmojiChar(csArr[i]) === emoji) { seg += csArr[i]; i++; }
+    ctx.font = emoji ? "20px Menlo, monospace" : "18px Menlo, monospace";
+    width += ctx.measureText(seg).width;
+  }
+  ctx.font = "18px Menlo, monospace";
+  return width;
+}
+
+function draw() {
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = "18px Menlo, monospace";
+  ctx.textAlign = "center";
+
+  const runs = buildRuns();
+  const cs = chars(textEl.value);
+  const words = [];
+  let cur = [], curStart = -1;
+  for (let k = 0; k < cs.length; k++) {
+    if (/\s/.test(cs[k])) {
+      if (cur.length) { words.push({ chars: cur, start: curStart }); cur = []; curStart = -1; }
+    } else {
+      if (curStart === -1) curStart = k;
+      cur.push(cs[k]);
+    }
+  }
+  if (cur.length) words.push({ chars: cur, start: curStart });
+
+  let lines = [], curLine = [], curLineChars = [];
+  for (const word of words) {
+    const trial = curLineChars.length ? [...curLineChars, " ", ...word.chars] : word.chars;
+    if (measureMixed(trial) > canvas.width - 8 && curLine.length) {
+      lines.push(curLine);
+      curLine = [word]; curLineChars = word.chars;
+    } else {
+      curLine.push(word); curLineChars = trial;
+    }
+  }
+  if (curLine.length) lines.push(curLine);
+  if (!lines.length) lines = [[]];
+
+  const lineChars = (line) => {
+    const out = [];
+    line.forEach((word, i) => {
+      if (i > 0) out.push(" ");
+      out.push(...word.chars);
+    });
+    return out;
+  };
+
+  const lineH = 22;
+  const maxLines = Math.max(1, Math.floor((canvas.height - 8) / lineH));
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    const lastLine = lines[lines.length - 1];
+    const fitsWithEllipsis = () => measureMixed([...lineChars(lastLine), "…"]) <= canvas.width - 8;
+    while (lastLine.length && !fitsWithEllipsis()) {
+      const lastWord = lastLine[lastLine.length - 1];
+      lastWord.chars.pop();
+      if (!lastWord.chars.length) lastLine.pop();
+    }
+    const lastWord = lastLine[lastLine.length - 1];
+    const ellipsisColor = lastWord ? (charColors[lastWord.start + lastWord.chars.length - 1] || currentColor) : currentColor;
+    lastLine.push({ chars: ["…"], start: -1, forcedColor: ellipsisColor });
+  }
+
+  let y = Math.max(16, (canvas.height - lineH * lines.length) / 2 + 16);
+  for (const line of lines) {
+    const w = measureMixed(lineChars(line));
+    let x = canvas.width / 2 - w / 2;
+    ctx.textAlign = "left";
+    for (let wi = 0; wi < line.length; wi++) {
+      if (wi > 0) { ctx.font = "18px Menlo, monospace"; x += ctx.measureText(" ").width; }
+      const word = line[wi];
+      for (let k = 0; k < word.chars.length; k++) {
+        const ch = word.chars[k];
+        ctx.font = isEmojiChar(ch) ? "20px Menlo, monospace" : "18px Menlo, monospace";
+        ctx.fillStyle = word.start === -1 ? word.forcedColor : (charColors[word.start + k] || currentColor);
+        ctx.fillText(ch, x, y);
+        x += ctx.measureText(ch).width;
+      }
+    }
+    ctx.font = "18px Menlo, monospace";
+    ctx.textAlign = "center";
+    y += lineH;
+  }
+}
+
+let debounceTimer;
+let latestRequest = 0;
+async function waitForTransfer(seq, generation) {
+  for (let i = 0; i < 150 && generation === latestRequest; i++) {
+    const response = await fetch(`/delivery/${seq}`);
+    if (!response.ok) throw new Error("Transfer status unavailable");
+    const result = await response.json();
+    if (result.state === "acknowledged") {
+      statusEl.textContent = "Transfer acknowledged.";
+      return;
+    }
+    if (result.state === "failed") throw new Error(result.error);
+    if (result.state === "superseded") return;
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  if (generation === latestRequest) throw new Error("No transfer confirmation received");
+}
+function send() {
+  clearTimeout(debounceTimer);
+  const generation = ++latestRequest;
+  debounceTimer = setTimeout(async () => {
+    statusEl.textContent = "Sending...";
+    try {
+      const response = await fetch("/update", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runs: buildRuns() }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      await waitForTransfer(result.seq, generation);
+    } catch (error) {
+      if (generation === latestRequest) statusEl.textContent = "Couldn't send: " + error.message;
+    }
+  }, 200);
+}
+
+textEl.addEventListener("input", () => { syncCharColors(); draw(); send(); });
+draw();
+</script>
+</body>
+</html>

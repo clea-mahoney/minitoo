@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Submission log — MiniToo Live Studio</title>
+<style>
+  :root {
+    --ui-font: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --device-font: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --ink: #ededed;
+    --ink-muted: #9a9a9a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: #111; color: var(--ink); font-family: var(--ui-font);
+    font-size: clamp(17px, 0.5vw + 14px, 20px); line-height: 1.5;
+    padding: 36px 26px 60px; max-width: 720px; margin: auto;
+  }
+  h1 { font-size: 1.5em; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 8px; }
+  .subtitle { font-size: 0.9em; color: var(--ink-muted); margin: 0 0 28px; }
+
+
+  #gate { max-width: 320px; margin: 60px auto 0; text-align: center; }
+  #gate input {
+    width: 100%; font-family: var(--ui-font); font-size: 1em; padding: 12px 14px;
+    border: 1px solid #333; border-radius: 10px; background: #1a1a1a; color: #fff;
+    text-align: center; margin-bottom: 12px;
+  }
+  #gate button {
+    padding: 11px 26px; font-family: var(--ui-font); font-size: 1em;
+    border-radius: 8px; border: none; background: #3CC9A4; color: #000;
+    font-weight: 600; cursor: pointer; width: 100%;
+  }
+  #gate button:hover { background: #5BD6B6; }
+  #gate-msg { font-size: 0.9em; margin-top: 14px; min-height: 20px; }
+
+  #log { display: none; }
+  .entry {
+    border: 1px solid #262626; border-radius: 12px; padding: 14px 16px;
+    margin-bottom: 12px; background: #161616;
+  }
+  .entry .meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 0.85em; color: var(--ink-muted); margin-bottom: 8px;
+  }
+  .entry .name { color: #3CC9A4; font-weight: 600; }
+  .entry .msg {
+    font-family: var(--device-font); font-size: 1em; line-height: 1.5;
+    word-break: break-word; white-space: pre-wrap;
+  }
+  .empty { color: var(--ink-muted); font-size: 0.95em; text-align: center; margin-top: 40px; }
+  #signout {
+    display: none; font-size: 0.85em; color: var(--ink-muted); text-decoration: underline;
+    cursor: pointer; margin-bottom: 20px;
+  }
+</style>
+</head>
+<body>
+  <div id="gate">
+    <h1>Submission log</h1>
+    <div class="subtitle">Sign in to view messages</div>
+    <input type="email" id="email" placeholder="Email" autocomplete="username" aria-label="Email">
+    <input type="password" id="pw" placeholder="Password" autocomplete="current-password">
+    <button id="unlock">Unlock</button>
+    <div id="gate-msg"></div>
+  </div>
+
+  <div id="log">
+    <h1>Submission log</h1>
+    <div class="subtitle">Every message sent through the remote page, in the order it arrived.</div>
+    <div id="signout">Sign out</div>
+    <div id="entries"></div>
+  </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+import { FIREBASE_CONFIG } from "./config.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const gateEl = document.getElementById("gate");
+const logEl = document.getElementById("log");
+const pwEl = document.getElementById("pw");
+const msgEl = document.getElementById("gate-msg");
+const entriesEl = document.getElementById("entries");
+const signoutEl = document.getElementById("signout");
+
+function unlock() {
+  const pw = pwEl.value;
+  msgEl.textContent = "checking...";
+  msgEl.style.color = "#888";
+  signInWithEmailAndPassword(auth, document.getElementById("email").value, pw)
+    .catch(() => {
+      msgEl.textContent = "Get outta here, hacker.";
+      msgEl.style.color = "#F7B8A0";
+      pwEl.value = "";
+    });
+}
+document.getElementById("unlock").onclick = unlock;
+pwEl.addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
+
+function fmtTime(ts) {
+  return new Date(ts).toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  });
+}
+
+function renderEntries(data) {
+  entriesEl.innerHTML = "";
+  if (!data) {
+    entriesEl.innerHTML = '<div class="empty">No submissions yet.</div>';
+    return;
+  }
+  const keys = Object.keys(data);
+  for (const key of keys) {
+    const entry = data[key];
+    const div = document.createElement("div");
+    div.className = "entry";
+    const nameText = entry.name && entry.name.trim() ? entry.name.trim() : "Anonymous";
+    div.innerHTML = `
+      <div class="meta"><span class="name">${escapeHtml(nameText)}</span><span>${fmtTime(entry.ts)}</span></div>
+      <div class="msg">${escapeHtml(entry.text || "")}</div>
+    `;
+    entriesEl.appendChild(div);
+  }
+}
+
+function escapeHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+auth.onAuthStateChanged((user) => {
+  if (user) {
+    gateEl.style.display = "none";
+    logEl.style.display = "block";
+    signoutEl.style.display = "block";
+    onValue(ref(db, "minitoo-log"), (snap) => renderEntries(snap.val()), () => { entriesEl.textContent = "This account does not have access to messages."; });
+  } else {
+    gateEl.style.display = "block";
+    logEl.style.display = "none";
+  }
+});
+
+signoutEl.onclick = () => signOut(auth);
+</script>
+</body>
+</html>
