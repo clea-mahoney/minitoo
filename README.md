@@ -11,6 +11,19 @@ and receive messages from a browser.
 | :---: | :---: | :---: |
 | ![Fox working](apps/clauddy/assets/characters/fox/working.gif) | ![Fox waiting](apps/clauddy/assets/characters/fox/alerting.gif) | ![Fox chilling](apps/clauddy/assets/characters/fox/chilling.gif) |
 
+## Release status
+
+Public beta. Character status, Pomodoro and the existing Netlify/Firebase Studio
+setup have been tested on the configured Mac. Two checks remain before calling
+this a fully tested release:
+
+- A fresh Mac installation without existing dependencies, Bluetooth approval or device settings.
+- A new Netlify/Firebase deployment using the bundled password-login frontend, including login, database permissions and device delivery.
+
+A fresh public clone passes all 34 tests using the existing Python environment.
+That does not verify either installation path. See [verification and remaining
+checks](docs/verification.md#remaining-release-checks).
+
 ## Get started
 
 You need macOS, Python 3.9 or newer, Xcode Command Line Tools, and a MiniToo
