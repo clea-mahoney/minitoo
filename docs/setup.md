@@ -1,5 +1,8 @@
 # Setup
 
+The fresh-Mac installation below has not yet been validated end to end without
+existing dependencies and device settings. See [remaining release checks](verification.md#remaining-release-checks).
+
 ## Install
 
 1. Pair the MiniToo in macOS System Settings.

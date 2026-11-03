@@ -18,6 +18,23 @@ the repository.
 | Codex adapter | Real working/waiting/finished adapter sequence passed. Codex loaded all five hooks without errors; they are trusted on the test Mac. Automatic working-state updates were observed during real tool calls |
 | Remote cloud | Existing Netlify-hosted anonymous-login page sent a message through Firebase and the Mac to a device acknowledgement on 2026-11-02. Earlier screen checks confirmed remote messages visually. Fresh-project password login and database rules have not been validated end to end |
 
+## Remaining release checks
+
+As of 2026-11-03, this is a public beta with two unverified installation paths:
+
+1. **Fresh Mac setup:** install dependencies, build and approve the Bluetooth
+   helper, configure device/account settings, and run the documented commands
+   without reusing an existing installation.
+2. **New remote setup:** deploy the bundled password-login frontend to Netlify
+   with a new Firebase project; verify sender and relay login, allowed and
+   denied database access, message delivery to the physical device, and the
+   browser's delivery result.
+
+A fresh public clone passed all 34 automated tests on 2026-11-03. Launcher
+permissions and character asset links were checked. This reused the configured
+Mac's Python environment and does not close either gap above. The remote device
+tests used the existing anonymous-login site, not the bundled password page.
+
 ## Run the tests
 
 After installing Python dependencies:
