@@ -22,9 +22,10 @@ waits for the device's transfer ACK. It does not borrow or overwrite a character
 slot. Turning it off selects the previous face and restores the previous hook
 pause. It can stay running after the launching terminal closes.
 
-Use [remote setup](../../docs/remote-studio.md) for phone access. The local URL
-is deliberately available only on the Mac. Remote access uses outbound Firebase
-requests and an authenticated web page.
+Use [remote setup](../../docs/remote-studio.md) for the verified Netlify-hosted
+frontend and Firebase relay flow. The local URL is available only on the Mac.
+A fresh deployment of the packaged password-login page is not yet verified
+end to end.
 
 `./minitoo studio back` and `forward` replay locally recorded remote messages.
 Messages live under `~/.clauddy/live-studio/`, outside this repository. Remote

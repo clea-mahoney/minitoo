@@ -1,46 +1,33 @@
 # Remote Studio
 
-Phone access is optional. The local controller works without a cloud account.
-Use your own Firebase project and web hosting. The Mac polls Firebase over HTTPS
-and forwards messages to its local Studio server.
+Netlify hosts the browser frontend. Firebase carries messages between that page
+and your Mac. Live Studio on the Mac sends them to the MiniToo over Bluetooth.
+The Mac must be awake, online, near the device, and running `./minitoo studio on`.
+Netlify does not run the Python server or connect directly to the device.
 
-## Configure your project
+```text
+Phone or browser → Netlify page → Firebase → Studio on your Mac → MiniToo
+```
 
-1. Create a Firebase project and Realtime Database in locked mode.
-2. Enable Email/Password under Firebase Authentication. This is the default
-   login mode for new installations.
-3. Create a sender account and a separate relay account. Copy their UIDs from
-   Authentication > Users.
-4. Replace `SENDER_UID` and `RELAY_UID` in
-   `apps/live-studio/database.rules.example.json`, then publish those rules in
-   your project's Realtime Database Rules editor. The sender and relay can read
-   current messages. Only the relay can update device status. Only the sender
-   can append cloud log entries. Other users cannot read or write these nodes.
-5. Register a Firebase web app. Copy
-   `apps/live-studio/remote-page/config.example.js` to `config.js` beside it and
-   fill in your web app configuration.
-6. Copy `personal.env.example` to `personal.env`. Set the database URL, web API
-   key, relay email and relay password. Keep this file on the Mac. Run
-   `chmod 600 personal.env`.
-7. Add your hosting domain to Firebase Authentication's authorized domains.
-8. Deploy the `apps/live-studio/remote-page/` folder, including your local
-   `config.js`, to static HTTPS hosting such as Netlify.
-9. Run `./minitoo studio on`. Open your hosted page on the phone and sign in
-   with the sender account. Send a short message and check the physical screen.
+Phone access is optional. The local controller at `http://127.0.0.1:8765` works
+without Netlify or Firebase.
 
-The Firebase web configuration is client configuration, not a password. Database
-rules restrict access to the two selected UIDs. Do not put relay credentials in
-the web page. `personal.env` and `config.js` are ignored by Git.
+## What has been verified
 
-The controller waits for a transfer result from the Mac. A successful transfer
-ACK means that the device accepted the media; check the screen to confirm its
-appearance. Sender names appear only in logs.
+An existing Netlify-hosted controller with Firebase anonymous login has been
+tested through the Mac relay to the device. Two people confirmed the hosted
+page worked. A repeat test on 2026-11-02 checked the hosted Send button through
+to the MiniToo's transfer acknowledgement after migrating the Bluetooth helper.
 
-## Reuse an existing anonymous-login page
+**A fresh installation using the password-login frontend in this repository has
+not been validated end to end.** Its example configuration and database rules
+are implementation references, not a verified installation guide. The existing
+hosted page and the packaged page currently use different login modes.
 
-If an existing hosted controller already uses anonymous Firebase login, the relay
-can connect to the same project without replacing that page. Store its local
-settings in `~/.clauddy/live-studio.env`:
+## Connect an existing anonymous-login page
+
+Keep the existing Netlify deployment and Firebase project. Store the relay's
+local settings in `~/.clauddy/live-studio.env`:
 
 ```bash
 export FIREBASE_DB_URL="https://YOUR_PROJECT-default-rtdb.firebaseio.com"
@@ -48,21 +35,48 @@ export FIREBASE_API_KEY="YOUR_FIREBASE_WEB_API_KEY"
 export FIREBASE_AUTH_MODE="anonymous"
 ```
 
-Run `chmod 600 ~/.clauddy/live-studio.env`, then restart Studio. This follows the
-project's existing access rules; it does not change them. Tokens are refreshed
-in memory. The packaged remote page uses password login, so keep the existing
-hosted page unless you are also migrating its accounts and rules.
+Keep this file on your Mac, then run:
+
+```bash
+chmod 600 ~/.clauddy/live-studio.env
+./minitoo studio on
+```
+
+Open your existing Netlify URL. Wait for the page to say it is ready, then send
+a short message. The page waits for the Mac's transfer result. An acknowledgement
+means the MiniToo accepted the image; check the physical screen for legibility.
+Sender names appear only in logs.
 
 Studio waits for the next remote send after startup. It does not automatically
-replay the message left in Firebase. Back/forward still replays history when
-explicitly requested.
+replay the message left in Firebase. Back/forward replays history only when
+requested. Turn Studio off with `./minitoo studio off` to restore the previous
+character and hook pause state.
+
+## Netlify frontend files
+
+The frontend source is `apps/live-studio/remote-page/`. Netlify serves its
+`index.html`, `log.html`, and Firebase web configuration in `config.js`.
+`config.example.js` shows the required fields. The configured folder is the
+static site; the rest of the repository stays on your Mac.
+
+Netlify supports deploying that folder directly, without a ZIP or build step.
+For an existing manually deployed site, updates go to that site's **Deploys**
+page. See [Netlify's deployment instructions](https://docs.netlify.com/deploy/create-deploys/#drag-and-drop).
+A public GitHub checkout does not contain the ignored `config.js`, so connecting
+GitHub to Netlify alone does not produce a configured frontend.
+
+Do not replace an existing anonymous-login page with the packaged password-login
+page until its accounts, rules and complete send flow have been validated.
+Never put the relay account's email or password in frontend files. Firebase web
+configuration is visible to browsers; Firebase access rules control database
+access. Personal settings remain outside Git.
 
 ## Logs
 
-The phone controller appends messages to your Firebase `minitoo-log` node.
-`log.html` requires an authorized account to read it. The Mac keeps a separate
-private log at `~/.clauddy/live-studio/messages.jsonl` for previous/next replay.
-Neither log belongs in a public repository.
+The existing hosted controller records messages in its Firebase `minitoo-log`
+node. Access follows that project's rules. The packaged `log.html` uses password
+login; its fresh-project access rules still need live validation.
 
-Reference: [Firebase database rules](https://firebase.google.com/docs/database/security)
-and [email/password REST authentication](https://firebase.google.com/docs/reference/rest/auth#section-sign-in-email-password).
+The Mac also keeps a private log at
+`~/.clauddy/live-studio/messages.jsonl` for previous/next replay. Neither message
+log belongs in a public repository.
