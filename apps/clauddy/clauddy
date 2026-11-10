@@ -58,6 +58,10 @@ cmd_character() {
 
   if [ -z "$name" ]; then
     active="$(clauddy_active_character)"
+    if ! ls -d "$char_dir"/*/ >/dev/null 2>&1; then
+      printf 'No characters yet. Make your own: see %s/README.md\n' "$char_dir"
+      return 0
+    fi
     printf 'Available characters:\n'
     for c in "$char_dir"/*/; do
       c="$(basename "$c")"
@@ -74,6 +78,11 @@ cmd_character() {
   for state in chilling working alerting; do
     ln -sf "characters/$name/$state.gif" "$SCRIPT_DIR/assets/$state.gif"
   done
+
+  if [ ! -f "${CLAUDDY_CONFIG:-$HOME/.clauddy/config}" ]; then
+    printf 'Selected %s. Run ./minitoo setup to upload the faces.\n' "$name"
+    return 0
+  fi
 
   printf 'Switched to %s. Uploading faces to the device...\n' "$name"
   "$SCRIPT_DIR/reupload-faces.sh"
@@ -170,7 +179,7 @@ cmd_face() {
 }
 
 usage() {
-  printf '%s\n' 'Usage: clauddy status|face NAME|character [fox|dino]|pause [DURATION]|resume'
+  printf '%s\n' 'Usage: clauddy status|face NAME|character [NAME]|pause [DURATION]|resume'
 }
 
 case "${1:-status}" in

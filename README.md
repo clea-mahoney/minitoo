@@ -5,11 +5,10 @@ and receive messages from a browser.
 
 | Character status | Focus timer | Live Studio |
 | --- | --- | --- |
-| Fox or dino faces for working, waiting and chilling | A countdown with optional Apple Music playback | Colored text and emoji from your Mac or an authorized phone |
+| Your own character faces for working, waiting and chilling | A countdown with optional Apple Music playback | Colored text and emoji from your Mac or an authorized phone |
 
-| Working | Waiting | Chilling |
-| :---: | :---: | :---: |
-| ![Fox working](apps/clauddy/assets/characters/fox/working.gif) | ![Fox waiting](apps/clauddy/assets/characters/fox/alerting.gif) | ![Fox chilling](apps/clauddy/assets/characters/fox/chilling.gif) |
+No character artwork is included. You make three small GIFs of your own:
+[make a character](apps/clauddy/assets/characters/README.md).
 
 ## Release status
 
@@ -33,6 +32,7 @@ paired in System Settings. The original apps were tested on firmware 2.4.0.
 git clone https://github.com/clea-mahoney/minitoo.git
 cd minitoo
 ./setup.sh
+./minitoo character NAME   # after adding your own GIFs, see "make a character"
 ./minitoo setup
 ./minitoo face working
 ./minitoo codex install   # optional automatic faces in Codex
@@ -48,7 +48,7 @@ not saved; device settings go in `~/.clauddy/config`.
 ## Use it
 
 ```bash
-./minitoo character fox                 # upload fox faces; dino is also included
+./minitoo character NAME                # upload a character you made
 ./minitoo face chilling                 # switch to an already-installed face
 ./minitoo pomodoro 25 5 1 --no-music     # one 30-minute cycle, including the break
 ./minitoo studio on                     # local controller: http://127.0.0.1:8765
@@ -86,8 +86,7 @@ The new media sender implements the animation format documented by
 [alvinunreal/divoom-minitoo-osx](https://github.com/alvinunreal/divoom-minitoo-osx).
 It reuses this project's Bluetooth helper; it does not bundle Alvin's source.
 
-Source code is available under the [MIT license](LICENSE). Character artwork is
-included as project assets; the MIT code license does not grant a separate
-artwork license. No vendor SDK or firmware is bundled.
+Source code is available under the [MIT license](LICENSE). No character artwork,
+vendor SDK or firmware is bundled.
 
 This project is not affiliated with Divoom.

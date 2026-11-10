@@ -132,6 +132,12 @@ clauddy_require_macos
 clauddy_require_python_pillow
 clauddy_ensure_dv_app
 
+if [ "$skip_upload" -eq 0 ]; then
+  for state in chilling working alerting; do
+    [ -f "$SCRIPT_DIR/assets/$state.gif" ] || clauddy_die "no character is selected yet. Add your own GIFs, then run ./minitoo character NAME. See apps/clauddy/assets/characters/README.md."
+  done
+fi
+
 cat <<'EOF'
 !! Before continuing:
   - Close the official Divoom app on your phone (force-quit, not just background).
@@ -296,7 +302,7 @@ if [ "$skip_upload" -eq 0 ]; then
       alerting) state_speed_ms="${CLAUDDY_SPEED_ALERTING:-}" ;;
     esac
 
-    [ -f "$gif" ] || clauddy_die "missing bundled GIF: $gif"
+    [ -f "$gif" ] || clauddy_die "missing character GIF: $gif (see apps/clauddy/assets/characters/README.md)"
     encode_args=(
       "$SCRIPT_DIR/tools/encode-custom-raw.py"
       --input "$gif"

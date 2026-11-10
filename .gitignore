@@ -21,3 +21,7 @@ core/divoom-send
 core/audio-guard
 build/
 dist/
+
+# Your own character artwork stays on your machine
+apps/clauddy/assets/*.gif
+apps/clauddy/assets/characters/*/

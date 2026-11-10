@@ -8,8 +8,10 @@ existing dependencies and device settings. See [remaining release checks](verifi
 1. Pair the MiniToo in macOS System Settings.
 2. Install Xcode Command Line Tools with `xcode-select --install` if needed.
 3. Run `./setup.sh` from the project root.
-4. Run `./minitoo setup`. Follow the Bluetooth and hidden password prompts.
-5. Check that `./minitoo face working` changes the physical screen.
+4. [Make a character](../apps/clauddy/assets/characters/README.md) and select it
+   with `./minitoo character NAME`. No artwork is bundled.
+5. Run `./minitoo setup`. Follow the Bluetooth and hidden password prompts.
+6. Check that `./minitoo face working` changes the physical screen.
 
 `setup.sh` creates a local Python environment. The `minitoo` launcher uses it
 automatically. Run all commands from the project root unless a guide says otherwise.

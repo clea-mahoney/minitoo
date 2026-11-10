@@ -51,7 +51,7 @@ MiniToo for macOS
   ./minitoo status                     Show character, hooks and Studio status
   ./minitoo codex install|remove        Configure automatic Codex faces
   ./minitoo face working|alerting|chilling|default
-  ./minitoo character [fox|dino]        List or install a character
+  ./minitoo character [NAME]            List or install a character
   ./minitoo pause [30m|2h|forever]       Pause automatic status hooks
   ./minitoo resume                     Enable automatic status hooks
   ./minitoo pomodoro [work break cycles] [--no-music]
